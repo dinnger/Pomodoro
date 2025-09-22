@@ -28,11 +28,16 @@ const timerCircle = document.querySelector('.timer-circle');
 const startBtn = document.getElementById('startBtn');
 const pauseBtn = document.getElementById('pauseBtn');
 const stopBtn = document.getElementById('stopBtn');
+const shortBreakBtn = document.getElementById('shortBreakBtn');
+const longBreakBtn = document.getElementById('longBreakBtn');
+const focusBtn = document.getElementById('focusBtn');
 const settingsBtn = document.getElementById('settingsBtn');
 const settingsSection = document.getElementById('settingsSection');
 const closeSettingsBtn = document.getElementById('closeSettingsBtn');
 const addTaskBtn = document.getElementById('addTaskBtn');
-const tasksList = document.getElementById('tasksList');
+const pendingTasksList = document.getElementById('pendingTasksList');
+const completedTasksList = document.getElementById('completedTasksList');
+const completedCount = document.getElementById('completedCount');
 
 // Settings elements
 const focusTimeValue = document.getElementById('focusTimeValue');
@@ -45,6 +50,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
     setupProgressRing();
     updateTimerDisplay();
+    updateModeButtons();
     updateSettings();
     requestInitialData();
 });
@@ -55,6 +61,11 @@ function setupEventListeners() {
     startBtn.addEventListener('click', startTimer);
     pauseBtn.addEventListener('click', pauseTimer);
     stopBtn.addEventListener('click', stopTimer);
+    
+    // Timer mode buttons
+    shortBreakBtn.addEventListener('click', () => setTimerMode('shortBreak'));
+    longBreakBtn.addEventListener('click', () => setTimerMode('longBreak'));
+    focusBtn.addEventListener('click', () => setTimerMode('focus'));
     
     // Settings
     settingsBtn.addEventListener('click', toggleSettings);
@@ -99,6 +110,50 @@ function stopTimer() {
     });
 }
 
+function setTimerMode(mode) {
+    if (timerState.isRunning) {
+        if (!confirm('Changing mode will stop the current timer. Continue?')) {
+            return;
+        }
+        stopTimer();
+    }
+    
+    // Update mode and time based on settings
+    timerState.mode = mode;
+    switch(mode) {
+        case 'focus':
+            timerState.timeRemaining = settings.focusTime * 60;
+            timerState.totalTime = settings.focusTime * 60;
+            break;
+        case 'shortBreak':
+            timerState.timeRemaining = settings.shortBreak * 60;
+            timerState.totalTime = settings.shortBreak * 60;
+            break;
+        case 'longBreak':
+            timerState.timeRemaining = settings.longBreak * 60;
+            timerState.totalTime = settings.longBreak * 60;
+            break;
+    }
+    
+    updateTimerDisplay();
+    updateProgressRing();
+    updateModeButtons();
+}
+
+function updateModeButtons() {
+    // Remove active class from all mode buttons
+    document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Add active class to current mode button
+    const currentModeBtn = document.getElementById(timerState.mode === 'focus' ? 'focusBtn' : 
+                                                  timerState.mode === 'shortBreak' ? 'shortBreakBtn' : 'longBreakBtn');
+    if (currentModeBtn) {
+        currentModeBtn.classList.add('active');
+    }
+}
+
 function updateTimerState(newState) {
     // Actualizar el estado con los nuevos valores
     Object.assign(timerState, newState);
@@ -106,6 +161,7 @@ function updateTimerState(newState) {
     console.log('Timer state updated:', timerState);
     
     updateTimerDisplay();
+    updateModeButtons();
     updateControls();
     updateProgressRing();
 }
@@ -344,24 +400,48 @@ function updateTasksList(newTasks) {
 }
 
 function renderTasks() {
-    tasksList.innerHTML = '';
+    // Separar tareas pendientes y completadas
+    const pendingTasks = tasks.filter(task => !task.isCompleted);
+    const completedTasks = tasks.filter(task => task.isCompleted);
     
-    if (tasks.length === 0) {
-        tasksList.innerHTML = '<div style="text-align: center; color: #888; padding: 20px;">No tasks yet. Add one!</div>';
-        return;
+    // Renderizar tareas pendientes
+    pendingTasksList.innerHTML = '';
+    if (pendingTasks.length === 0) {
+        pendingTasksList.innerHTML = '<div class="no-tasks">No pending tasks. Add one!</div>';
+    } else {
+        pendingTasks.forEach(task => {
+            const taskElement = createTaskElement(task, false);
+            pendingTasksList.appendChild(taskElement);
+        });
     }
     
-    tasks.forEach(task => {
-        const taskElement = createTaskElement(task);
-        tasksList.appendChild(taskElement);
-    });
+    // Renderizar tareas completadas
+    completedTasksList.innerHTML = '';
+    completedCount.textContent = completedTasks.length;
+    if (completedTasks.length === 0) {
+        completedTasksList.innerHTML = '<div class="no-tasks">No completed tasks yet.</div>';
+    } else {
+        completedTasks.forEach(task => {
+            const taskElement = createTaskElement(task, true);
+            completedTasksList.appendChild(taskElement);
+        });
+    }
 }
 
-function createTaskElement(task) {
+function createTaskElement(task, isCompleted = false) {
     const taskDiv = document.createElement('div');
-    taskDiv.className = 'task-item';
+    taskDiv.className = isCompleted ? 'task-item completed' : 'task-item';
     
     const completed = task.completedPomodoros || 0;
+    
+    const actions = isCompleted ? 
+        // Para tareas completadas: play, regresar a pendientes, eliminar
+        `<button class="task-action-btn" onclick="startTaskPomodoro('${task.id}')">▶️</button>
+         <button class="task-action-btn uncomplete-btn" onclick="uncompleteTask('${task.id}')">↩️</button>
+         <button class="task-action-btn delete-btn" onclick="deleteCompletedTask('${task.id}')">🗑️</button>` :
+        // Para tareas pendientes: play y completar
+        `<button class="task-action-btn" onclick="startTaskPomodoro('${task.id}')">▶️</button>
+         <button class="task-action-btn complete-btn" onclick="completeTask('${task.id}')">✅</button>`;
     
     taskDiv.innerHTML = `
         <div class="task-info">
@@ -369,8 +449,7 @@ function createTaskElement(task) {
             <div class="task-progress">${completed} pomodoros completed</div>
         </div>
         <div class="task-actions">
-            <button class="task-action-btn" onclick="startTaskPomodoro('${task.id}')">▶️</button>
-            <button class="task-action-btn" onclick="completeTask('${task.id}')">✅</button>
+            ${actions}
         </div>
     `;
     
@@ -389,6 +468,22 @@ function completeTask(taskId) {
         command: 'completeTask',
         taskId: taskId
     });
+}
+
+function uncompleteTask(taskId) {
+    vscode.postMessage({
+        command: 'uncompleteTask',
+        taskId: taskId
+    });
+}
+
+function deleteCompletedTask(taskId) {
+    if (confirm('¿Estás seguro de que quieres eliminar esta tarea completada?')) {
+        vscode.postMessage({
+            command: 'deleteCompletedTask',
+            taskId: taskId
+        });
+    }
 }
 
 // Communication with VS Code

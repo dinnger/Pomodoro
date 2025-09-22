@@ -15,6 +15,23 @@ export class TaskService {
         return this.taskProvider.getAllTasks();
     }
 
+    completeTask(taskId: string): void {
+        const tasks = this.getAllTasks();
+        const task = tasks.find(t => t.id === taskId);
+        
+        if (!task) {
+            vscode.window.showErrorMessage('Tarea no encontrada');
+            return;
+        }
+
+        this.taskProvider.updateTask(task.id, {
+            isCompleted: true,
+            completedAt: new Date()
+        });
+
+        vscode.window.showInformationMessage(`Tarea "${task.name}" marcada como completada`);
+    }
+
     createTaskFromName(taskName: string): void {
         this.taskProvider.addTask({
             id: generateId(),
@@ -112,28 +129,31 @@ export class TaskService {
         }
     }
 
-    async completeTask(task: Task): Promise<void> {
-        const response = await vscode.window.showInformationMessage(
-            `¿Marcar la tarea "${task.name}" como completada?`,
-            'Sí',
-            'No'
-        );
-
-        if (response === 'Sí') {
-            this.taskProvider.updateTask(task.id, {
-                isCompleted: true,
-                completedAt: new Date()
-            });
-            vscode.window.showInformationMessage(`¡Tarea "${task.name}" completada! 🎉`);
-        }
-    }
-
     incrementPomodoroCount(taskId: string): void {
         const task = this.taskProvider.getTask(taskId);
         if (task) {
             this.taskProvider.updateTask(taskId, {
                 completedPomodoros: task.completedPomodoros + 1
             });
+        }
+    }
+
+    uncompleteTask(taskId: string): void {
+        const task = this.taskProvider.getTask(taskId);
+        if (task) {
+            this.taskProvider.updateTask(taskId, {
+                isCompleted: false,
+                completedAt: undefined
+            });
+            vscode.window.showInformationMessage(`Tarea "${task.name}" regresada a pendientes`);
+        }
+    }
+
+    deleteCompletedTask(taskId: string): void {
+        const task = this.taskProvider.getTask(taskId);
+        if (task && task.isCompleted) {
+            this.taskProvider.deleteTask(taskId);
+            vscode.window.showInformationMessage(`Tarea completada "${task.name}" eliminada`);
         }
     }
 }

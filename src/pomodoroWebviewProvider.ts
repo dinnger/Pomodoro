@@ -41,12 +41,27 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
                             // Reanudar pomodoro pausado
                             this.pomodoroTimer.resumePomodoro();
                         } else {
-                            // Iniciar nuevo pomodoro
-                            const availableTasks = this.taskService.getAllTasks();
-                            if (availableTasks.length > 0) {
-                                this.pomodoroTimer.startPomodoro(availableTasks[0]);
+                            // Iniciar nuevo pomodoro con la tarea específica
+                            if (message.taskId) {
+                                // Si se proporciona un taskId específico, usar esa tarea
+                                const allTasks = this.taskService.getAllTasks();
+                                const selectedTask = allTasks.find(task => task.id === message.taskId && !task.isCompleted);
+                                
+                                if (selectedTask) {
+                                    this.pomodoroTimer.startPomodoro(selectedTask);
+                                } else {
+                                    vscode.window.showWarningMessage('La tarea seleccionada no está disponible o ya está completada');
+                                }
                             } else {
-                                vscode.window.showWarningMessage('No hay tareas disponibles');
+                                // Si no se proporciona taskId, usar la primera tarea pendiente
+                                const allTasks = this.taskService.getAllTasks();
+                                const pendingTasks = allTasks.filter(task => !task.isCompleted);
+                                
+                                if (pendingTasks.length > 0) {
+                                    this.pomodoroTimer.startPomodoro(pendingTasks[0]);
+                                } else {
+                                    vscode.window.showWarningMessage('No hay tareas pendientes disponibles');
+                                }
                             }
                         }
                         // Enviar inmediatamente el estado actualizado
@@ -66,6 +81,15 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
                         break;
                     case 'addTask':
                         this._addTask(message.taskName);
+                        break;
+                    case 'completeTask':
+                        this._completeTask(message.taskId);
+                        break;
+                    case 'uncompleteTask':
+                        this._uncompleteTask(message.taskId);
+                        break;
+                    case 'deleteCompletedTask':
+                        this._deleteCompletedTask(message.taskId);
                         break;
                 }
             },
@@ -113,6 +137,12 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
                             <button class="control-btn" id="startBtn">START</button>
                             <button class="control-btn" id="pauseBtn" style="display: none;">PAUSE</button>
                             <button class="control-btn secondary" id="stopBtn" style="display: none;">STOP</button>
+                        </div>
+                        
+                        <div class="timer-modes">
+                            <button class="mode-btn" id="shortBreakBtn">Short Break</button>
+                            <button class="mode-btn" id="longBreakBtn">Long Break</button>
+                            <button class="mode-btn" id="focusBtn">Focus</button>
                         </div>
                     </div>
 
@@ -171,11 +201,22 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
                     <!-- Tasks Section -->
                     <div class="tasks-section">
                         <div class="tasks-header">
-                            <h3>Tasks</h3>
+                            <h3>Pending Tasks</h3>
                             <button class="add-task-btn" id="addTaskBtn">+</button>
                         </div>
-                        <div class="tasks-list" id="tasksList">
-                            <!-- Tasks will be populated here -->
+                        <div class="tasks-list" id="pendingTasksList">
+                            <!-- Pending tasks will be populated here -->
+                        </div>
+                    </div>
+
+                    <!-- Completed Tasks Section -->
+                    <div class="tasks-section completed-section">
+                        <div class="tasks-header">
+                            <h3>Completed Tasks</h3>
+                            <span class="task-count" id="completedCount">0</span>
+                        </div>
+                        <div class="tasks-list completed-tasks" id="completedTasksList">
+                            <!-- Completed tasks will be populated here -->
                         </div>
                     </div>
 
@@ -238,6 +279,36 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
             this.taskService.createTaskFromName(taskName.trim());
             this._sendTasks();
         }
+    }
+
+    private _completeTask(taskId: string) {
+        // Verificar si la tarea que se está completando es la tarea actualmente corriendo
+        const currentTask = this.pomodoroTimer.getCurrentTask();
+        if (currentTask && currentTask.id === taskId) {
+            // Detener el timer si la tarea activa se está completando
+            this.pomodoroTimer.stopPomodoro();
+            
+            // Enviar actualización del estado del timer
+            if (this._view) {
+                this._view.webview.postMessage({
+                    command: 'timerUpdate',
+                    state: this.pomodoroTimer.getStatus()
+                });
+            }
+        }
+        
+        this.taskService.completeTask(taskId);
+        this._sendTasks();
+    }
+
+    private _uncompleteTask(taskId: string) {
+        this.taskService.uncompleteTask(taskId);
+        this._sendTasks();
+    }
+
+    private _deleteCompletedTask(taskId: string) {
+        this.taskService.deleteCompletedTask(taskId);
+        this._sendTasks();
     }
 
     public updateTasks() {

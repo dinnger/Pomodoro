@@ -233,6 +233,10 @@ export class PomodoroTimer {
         return { ...this.status };
     }
 
+    getCurrentTask(): Task | undefined {
+        return this.status.currentTask;
+    }
+
     private saveSessions(): void {
         this.context.globalState.update('pomodoroSessions', this.sessions);
     }

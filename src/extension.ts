@@ -66,7 +66,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('pomodoroTasks.completeTask', (item: TaskItem) => {
             if (item && item.task) {
-                taskService.completeTask(item.task);
+                taskService.completeTask(item.task.id);
             }
         }),
 
