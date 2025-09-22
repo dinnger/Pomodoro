@@ -9,13 +9,14 @@
     "sourceMap": true,
     "rootDir": "src",
     "strict": true,
-    "declaration": true,
+    "declaration": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true
   },
   "exclude": [
     "node_modules",
-    ".vscode-test"
+    ".vscode-test",
+    "out"
   ]
 }
