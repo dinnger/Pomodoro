@@ -3,7 +3,7 @@
   "displayName": "Pomodoro Task Manager",
   "description": "Gestor de tareas con temporizador Pomodoro integrado",
   "version": "1.0.0",
-  "publisher": "pomodoro-dev",
+  "publisher": "dinnger",
   "repository": {
     "type": "git",
     "url": "https://github.com/dinnger/Pomodoro.git"

@@ -36,6 +36,12 @@ export class PomodoroTimer {
             return;
         }
 
+        // Si ya hay un pomodoro pausado, no reiniciar el tiempo
+        if (this.status.state === TimerState.Paused && this.status.currentTask) {
+            this.resumePomodoro();
+            return;
+        }
+
         const config = vscode.workspace.getConfiguration('pomodoroTasks');
         const workDuration = config.get<number>('workDuration', 25);
         
@@ -48,6 +54,8 @@ export class PomodoroTimer {
         };
 
         this.startTimer();
+        this.updateStatusBar();
+        this._onTimerUpdate.fire(this.status);
         vscode.window.showInformationMessage(`Pomodoro iniciado para: ${task.name}`);
     }
 
@@ -65,6 +73,8 @@ export class PomodoroTimer {
         if (this.status.state === TimerState.Paused) {
             this.status.state = TimerState.Running;
             this.startTimer();
+            this.updateStatusBar();
+            this._onTimerUpdate.fire(this.status);
             vscode.window.showInformationMessage('Pomodoro reanudado');
         }
     }

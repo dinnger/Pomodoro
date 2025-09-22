@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { PomodoroTimer } from './pomodoroTimer';
 import { TaskService } from './taskService';
+import { TimerState } from './types';
 
 export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'pomodoroWebview';
@@ -34,13 +35,22 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
             message => {
                 switch (message.command) {
                     case 'startPomodoro':
-                        // Necesitamos obtener una tarea activa o la primera disponible
-                        const availableTasks = this.taskService.getAllTasks();
-                        if (availableTasks.length > 0) {
-                            this.pomodoroTimer.startPomodoro(availableTasks[0]);
+                        // Verificar si hay un pomodoro pausado para reanudar
+                        const currentStatus = this.pomodoroTimer.getStatus();
+                        if (currentStatus.state === TimerState.Paused) {
+                            // Reanudar pomodoro pausado
+                            this.pomodoroTimer.resumePomodoro();
                         } else {
-                            vscode.window.showWarningMessage('No hay tareas disponibles');
+                            // Iniciar nuevo pomodoro
+                            const availableTasks = this.taskService.getAllTasks();
+                            if (availableTasks.length > 0) {
+                                this.pomodoroTimer.startPomodoro(availableTasks[0]);
+                            } else {
+                                vscode.window.showWarningMessage('No hay tareas disponibles');
+                            }
                         }
+                        // Enviar inmediatamente el estado actualizado
+                        this._sendTimerUpdate(this.pomodoroTimer.getStatus());
                         break;
                     case 'pausePomodoro':
                         this.pomodoroTimer.pausePomodoro();
@@ -55,7 +65,7 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
                         this._sendTasks();
                         break;
                     case 'addTask':
-                        this._addTask(message.task);
+                        this._addTask(message.taskName);
                         break;
                 }
             },
@@ -223,9 +233,11 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
         config.update('showNotifications', settings.notifications, vscode.ConfigurationTarget.Global);
     }
 
-    private _addTask(taskData: any) {
-        this.taskService.createTask();
-        this._sendTasks();
+    private _addTask(taskName: string) {
+        if (taskName && taskName.trim()) {
+            this.taskService.createTaskFromName(taskName.trim());
+            this._sendTasks();
+        }
     }
 
     public updateTasks() {

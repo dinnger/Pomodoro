@@ -21,16 +21,14 @@ export class TaskItem extends vscode.TreeItem {
 
     private getTooltip(): string {
         const completed = this.task.completedPomodoros;
-        const estimated = this.task.estimatedPomodoros;
         const status = this.task.isCompleted ? '✅ Completada' : '⏳ Pendiente';
         
-        return `${this.task.name}\n${status}\nPomodoros: ${completed}/${estimated}\n${this.task.description || ''}`;
+        return `${this.task.name}\n${status}\nPomodoros completados: ${completed}\n${this.task.description || ''}`;
     }
 
     private getDescription(): string {
         const completed = this.task.completedPomodoros;
-        const estimated = this.task.estimatedPomodoros;
-        return `${completed}/${estimated} 🍅`;
+        return `${completed} 🍅`;
     }
 
     private getIcon(): vscode.ThemeIcon {

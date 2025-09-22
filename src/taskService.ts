@@ -15,6 +15,19 @@ export class TaskService {
         return this.taskProvider.getAllTasks();
     }
 
+    createTaskFromName(taskName: string): void {
+        this.taskProvider.addTask({
+            id: generateId(),
+            name: taskName,
+            description: '',
+            isCompleted: false,
+            completedPomodoros: 0,
+            estimatedPomodoros: 1,
+            createdAt: new Date(),
+            completedAt: undefined
+        });
+    }
+
     async createTask(): Promise<void> {
         const name = await vscode.window.showInputBox({
             prompt: 'Nombre de la tarea',
@@ -30,36 +43,18 @@ export class TaskService {
             placeHolder: 'Describe la tarea brevemente'
         });
 
-        const estimatedInput = await vscode.window.showInputBox({
-            prompt: 'Número estimado de pomodoros',
-            placeHolder: '1',
-            validateInput: (value) => {
-                const num = parseInt(value);
-                if (isNaN(num) || num <= 0) {
-                    return 'Debe ser un número positivo';
-                }
-                return undefined;
-            }
-        });
-
-        if (!estimatedInput) {
-            return;
-        }
-
-        const estimatedPomodoros = parseInt(estimatedInput);
-
         const task: Task = {
             id: generateId(),
-            name,
-            description,
-            estimatedPomodoros,
-            completedPomodoros: 0,
+            name: name,
+            description: description || '',
             isCompleted: false,
-            createdAt: new Date()
+            completedPomodoros: 0,
+            estimatedPomodoros: 1, // Valor por defecto, no se muestra
+            createdAt: new Date(),
+            completedAt: undefined
         };
 
         this.taskProvider.addTask(task);
-        vscode.window.showInformationMessage(`Tarea "${name}" creada exitosamente`);
     }
 
     async editTask(task: Task): Promise<void> {

@@ -79,6 +79,9 @@ function setupEventListeners() {
 
 // Timer Functions
 function startTimer() {
+    console.log('Starting timer... Current state:', timerState);
+    
+    // No actualizar el estado visual aquí, dejar que venga del backend
     vscode.postMessage({
         command: 'startPomodoro'
     });
@@ -97,7 +100,11 @@ function stopTimer() {
 }
 
 function updateTimerState(newState) {
-    timerState = { ...timerState, ...newState };
+    // Actualizar el estado con los nuevos valores
+    Object.assign(timerState, newState);
+    
+    console.log('Timer state updated:', timerState);
+    
     updateTimerDisplay();
     updateControls();
     updateProgressRing();
@@ -123,23 +130,42 @@ function updateTimerDisplay() {
 }
 
 function updateControls() {
+    console.log('Updating controls with state:', timerState);
+    
+    // Limpiar clases de animación
+    timerCircle.classList.remove('running');
+    
     if (timerState.isRunning && !timerState.isPaused) {
+        console.log('Setting to running state');
+        // Timer está corriendo
         startBtn.style.display = 'none';
         pauseBtn.style.display = 'inline-block';
         stopBtn.style.display = 'inline-block';
         timerCircle.classList.add('running');
+        
+        // Hacer el botón START primary para destacar cuando esté pausado
+        startBtn.classList.remove('primary');
+        pauseBtn.classList.add('primary');
+        
     } else if (timerState.isPaused) {
+        console.log('Setting to paused state');
+        // Timer está pausado
         startBtn.style.display = 'inline-block';
         startBtn.textContent = 'RESUME';
         pauseBtn.style.display = 'none';
         stopBtn.style.display = 'inline-block';
-        timerCircle.classList.remove('running');
+        
+        startBtn.classList.add('primary');
+        
     } else {
+        console.log('Setting to idle state');
+        // Timer detenido/idle
         startBtn.style.display = 'inline-block';
         startBtn.textContent = 'START';
         pauseBtn.style.display = 'none';
         stopBtn.style.display = 'none';
-        timerCircle.classList.remove('running');
+        
+        startBtn.classList.add('primary');
     }
 }
 
@@ -236,16 +262,80 @@ function sendSettingsUpdate() {
 
 // Tasks Functions
 function addTask() {
-    const taskName = prompt('Enter task name:');
-    if (taskName && taskName.trim()) {
-        vscode.postMessage({
-            command: 'addTask',
-            task: {
-                title: taskName.trim(),
-                description: ''
-            }
-        });
+    // Crear un prompt personalizado usando un input temporal
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    `;
+    
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        background: #2a2a2a;
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid #444;
+        min-width: 300px;
+    `;
+    
+    modal.innerHTML = `
+        <h3 style="margin: 0 0 15px 0; color: white;">Add New Task</h3>
+        <input type="text" id="taskNameInput" placeholder="Enter task name..." 
+               style="width: 100%; padding: 10px; border: 1px solid #555; background: #333; color: white; border-radius: 5px; margin-bottom: 15px;">
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button id="cancelBtn" style="padding: 8px 16px; background: #666; color: white; border: none; border-radius: 5px; cursor: pointer;">Cancel</button>
+            <button id="confirmBtn" style="padding: 8px 16px; background: #ff6b47; color: white; border: none; border-radius: 5px; cursor: pointer;">Add Task</button>
+        </div>
+    `;
+    
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    const input = modal.querySelector('#taskNameInput');
+    const cancelBtn = modal.querySelector('#cancelBtn');
+    const confirmBtn = modal.querySelector('#confirmBtn');
+    
+    input.focus();
+    
+    function closeModal() {
+        document.body.removeChild(overlay);
     }
+    
+    function addTaskAction() {
+        const taskName = input.value.trim();
+        if (taskName) {
+            vscode.postMessage({
+                command: 'addTask',
+                taskName: taskName
+            });
+            closeModal();
+        }
+    }
+    
+    cancelBtn.addEventListener('click', closeModal);
+    confirmBtn.addEventListener('click', addTaskAction);
+    
+    input.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            addTaskAction();
+        } else if (e.key === 'Escape') {
+            closeModal();
+        }
+    });
+    
+    overlay.addEventListener('click', function(e) {
+        if (e.target === overlay) {
+            closeModal();
+        }
+    });
 }
 
 function updateTasksList(newTasks) {
@@ -272,13 +362,11 @@ function createTaskElement(task) {
     taskDiv.className = 'task-item';
     
     const completed = task.completedPomodoros || 0;
-    const estimated = task.estimatedPomodoros || 1;
-    const percentage = Math.round((completed / estimated) * 100);
     
     taskDiv.innerHTML = `
         <div class="task-info">
             <div class="task-name">${task.name}</div>
-            <div class="task-progress">${completed}/${estimated} pomodoros (${percentage}%)</div>
+            <div class="task-progress">${completed} pomodoros completed</div>
         </div>
         <div class="task-actions">
             <button class="task-action-btn" onclick="startTaskPomodoro('${task.id}')">▶️</button>
@@ -324,13 +412,17 @@ window.addEventListener('message', event => {
             break;
             
         case 'timerUpdate':
+            const data = message.data;
+            console.log('Received timer update:', data);
+            
             updateTimerState({
-                isRunning: message.data.state === 'Running',
-                isPaused: message.data.state === 'Paused',
-                timeRemaining: message.data.remainingTime,
-                mode: message.data.sessionType === 'work' ? 'focus' : 
-                      message.data.sessionType === 'shortBreak' ? 'shortBreak' : 'longBreak',
-                completedPomodoros: message.data.completedPomodoros
+                isRunning: data.state === 'running',
+                isPaused: data.state === 'paused',
+                timeRemaining: data.remainingTime,
+                totalTime: data.remainingTime + (timerState.totalTime - timerState.timeRemaining), // Mantener el total original
+                mode: data.sessionType === 'work' ? 'focus' : 
+                      data.sessionType === 'shortBreak' ? 'shortBreak' : 'longBreak',
+                completedPomodoros: data.completedPomodoros || 0
             });
             break;
             
