@@ -46,37 +46,37 @@
     "commands": [
       {
         "command": "pomodoroTasks.addTask",
-        "title": "Agregar Tarea",
+        "title": "Pomodoro: Agregar Tarea",
         "icon": "$(add)"
       },
       {
         "command": "pomodoroTasks.startPomodoro",
-        "title": "Iniciar Pomodoro",
+        "title": "Pomodoro: Iniciar Pomodoro",
         "icon": "$(play)"
       },
       {
         "command": "pomodoroTasks.pausePomodoro",
-        "title": "Pausar Pomodoro",
+        "title": "Pomodoro: Pausar Pomodoro",
         "icon": "$(debug-pause)"
       },
       {
         "command": "pomodoroTasks.stopPomodoro",
-        "title": "Detener Pomodoro",
+        "title": "Pomodoro: Detener Pomodoro",
         "icon": "$(debug-stop)"
       },
       {
         "command": "pomodoroTasks.editTask",
-        "title": "Editar Tarea",
+        "title": "Pomodoro: Editar Tarea",
         "icon": "$(edit)"
       },
       {
         "command": "pomodoroTasks.deleteTask",
-        "title": "Eliminar Tarea",
+        "title": "Pomodoro: Eliminar Tarea",
         "icon": "$(trash)"
       },
       {
         "command": "pomodoroTasks.completeTask",
-        "title": "Marcar como Completada",
+        "title": "Pomodoro: Marcar como Completada",
         "icon": "$(check)"
       }
     ],

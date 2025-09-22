@@ -79,6 +79,44 @@ export class PomodoroTimer {
         }
     }
 
+    startTimerOnly(sessionType: 'work' | 'shortBreak' | 'longBreak'): void {
+        if (this.status.state === TimerState.Running) {
+            vscode.window.showWarningMessage('Ya hay un temporizador en ejecución');
+            return;
+        }
+
+        const config = vscode.workspace.getConfiguration('pomodoroTasks');
+        let duration: number;
+        
+        switch (sessionType) {
+            case 'work':
+                duration = config.get<number>('workDuration', 25);
+                break;
+            case 'shortBreak':
+                duration = config.get<number>('shortBreakDuration', 5);
+                break;
+            case 'longBreak':
+                duration = config.get<number>('longBreakDuration', 15);
+                break;
+        }
+
+        this.status = {
+            state: TimerState.Running,
+            currentTask: undefined, // Sin tarea específica
+            remainingTime: duration * 60,
+            sessionType: sessionType,
+            completedPomodoros: this.status.completedPomodoros
+        };
+
+        this.startTimer();
+        this.updateStatusBar();
+        this._onTimerUpdate.fire(this.status);
+        
+        const sessionName = sessionType === 'work' ? 'Enfoque' : 
+                           sessionType === 'shortBreak' ? 'Descanso Corto' : 'Descanso Largo';
+        vscode.window.showInformationMessage(`${sessionName} iniciado (${duration} minutos)`);
+    }
+
     stopPomodoro(): void {
         this.stopTimer();
         this.status = {

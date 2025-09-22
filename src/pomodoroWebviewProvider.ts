@@ -52,8 +52,11 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
                                 } else {
                                     vscode.window.showWarningMessage('La tarea seleccionada no está disponible o ya está completada');
                                 }
+                            } else if (message.sessionType) {
+                                // Si se proporciona un tipo de sesión pero no una tarea, iniciar timer sin tarea
+                                this.pomodoroTimer.startTimerOnly(message.sessionType);
                             } else {
-                                // Si no se proporciona taskId, usar la primera tarea pendiente
+                                // Si no se proporciona taskId ni sessionType, usar la primera tarea pendiente
                                 const allTasks = this.taskService.getAllTasks();
                                 const pendingTasks = allTasks.filter(task => !task.isCompleted);
                                 
@@ -79,6 +82,10 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
                     case 'getTasks':
                         this._sendTasks();
                         break;
+                    case 'getInitialData':
+                        this._sendInitialData();
+                        this._sendTasks();
+                        break;
                     case 'addTask':
                         this._addTask(message.taskName);
                         break;
@@ -90,6 +97,9 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
                         break;
                     case 'deleteCompletedTask':
                         this._deleteCompletedTask(message.taskId);
+                        break;
+                    case 'showNotification':
+                        this._showNotification(message.message, message.type);
                         break;
                 }
             },
@@ -234,16 +244,18 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
     private _sendInitialData() {
         if (this._view) {
             const config = vscode.workspace.getConfiguration('pomodoroTasks');
-            this._view.webview.postMessage({
+            const initialData = {
                 command: 'initialData',
                 settings: {
                     focusTime: config.get('workDuration', 25),
                     shortBreak: config.get('shortBreakDuration', 5),
                     longBreak: config.get('longBreakDuration', 15),
-                    notifications: config.get('showNotifications', true)
+                    notifications: config.get('notifications', true)
                 },
                 timerState: this.pomodoroTimer.getStatus()
-            });
+            };
+            console.log('Sending initial data:', initialData);
+            this._view.webview.postMessage(initialData);
         }
     }
 
@@ -271,7 +283,7 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
         config.update('workDuration', settings.focusTime, vscode.ConfigurationTarget.Global);
         config.update('shortBreakDuration', settings.shortBreak, vscode.ConfigurationTarget.Global);
         config.update('longBreakDuration', settings.longBreak, vscode.ConfigurationTarget.Global);
-        config.update('showNotifications', settings.notifications, vscode.ConfigurationTarget.Global);
+        config.update('notifications', settings.notifications, vscode.ConfigurationTarget.Global);
     }
 
     private _addTask(taskName: string) {
@@ -307,8 +319,24 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
     }
 
     private _deleteCompletedTask(taskId: string) {
+        console.log('_deleteCompletedTask called with taskId:', taskId);
         this.taskService.deleteCompletedTask(taskId);
         this._sendTasks();
+    }
+
+    private _showNotification(message: string, type: string = 'info') {
+        switch (type) {
+            case 'warning':
+                vscode.window.showWarningMessage(message);
+                break;
+            case 'error':
+                vscode.window.showErrorMessage(message);
+                break;
+            case 'info':
+            default:
+                vscode.window.showInformationMessage(message);
+                break;
+        }
     }
 
     public updateTasks() {

@@ -150,10 +150,17 @@ export class TaskService {
     }
 
     deleteCompletedTask(taskId: string): void {
+        console.log('deleteCompletedTask called with taskId:', taskId);
         const task = this.taskProvider.getTask(taskId);
-        if (task && task.isCompleted) {
+        console.log('Found task:', task);
+        
+        if (task) {
+            console.log('Deleting task:', task.name);
             this.taskProvider.deleteTask(taskId);
-            vscode.window.showInformationMessage(`Tarea completada "${task.name}" eliminada`);
+            vscode.window.showInformationMessage(`Tarea "${task.name}" eliminada`);
+        } else {
+            console.log('Task not found for deletion');
+            vscode.window.showErrorMessage('Tarea no encontrada para eliminar');
         }
     }
 }

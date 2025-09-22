@@ -16,6 +16,7 @@ let settings = {
 };
 
 let tasks = [];
+let currentRunningTaskId = null; // ID de la tarea que está corriendo actualmente
 
 // VS Code API
 const vscode = acquireVsCodeApi();
@@ -52,7 +53,12 @@ document.addEventListener('DOMContentLoaded', function() {
     updateTimerDisplay();
     updateModeButtons();
     updateSettings();
+    
+    // Request initial data immediately and with a small delay to ensure webview is ready
     requestInitialData();
+    setTimeout(() => {
+        requestInitialData();
+    }, 100);
 });
 
 // Event Listeners
@@ -92,10 +98,47 @@ function setupEventListeners() {
 function startTimer() {
     console.log('Starting timer... Current state:', timerState);
     
-    // No actualizar el estado visual aquí, dejar que venga del backend
-    vscode.postMessage({
-        command: 'startPomodoro'
-    });
+    // Determinar el tipo de sesión basado en el modo activo
+    let sessionType = timerState.mode; // 'focus', 'shortBreak', 'longBreak'
+    
+    // Convertir nombres a los esperados por el backend
+    if (sessionType === 'focus') {
+        sessionType = 'work';
+    }
+    
+    // Actualizar el tiempo total antes de iniciar para que el progreso se calcule correctamente
+    timerState.totalTime = calculateTotalTime(sessionType);
+    
+    // Si es una sesión de trabajo (focus), verificar tareas
+    if (sessionType === 'work') {
+        const pendingTasks = tasks.filter(task => !task.isCompleted);
+        
+        if (pendingTasks.length === 0) {
+            // No hay tareas pendientes - enviar mensaje al backend para mostrar notificación de VS Code
+            vscode.postMessage({
+                command: 'showNotification',
+                message: 'No hay tareas pendientes. Agrega una tarea antes de iniciar un pomodoro de enfoque.',
+                type: 'warning'
+            });
+            return;
+        }
+        
+        // Seleccionar automáticamente la primera tarea pendiente
+        const firstTask = pendingTasks[0];
+        console.log('Auto-selecting first pending task:', firstTask);
+        
+        vscode.postMessage({
+            command: 'startPomodoro',
+            sessionType: sessionType,
+            taskId: firstTask.id
+        });
+    } else {
+        // Para descansos, no se necesita tarea
+        vscode.postMessage({
+            command: 'startPomodoro',
+            sessionType: sessionType
+        });
+    }
 }
 
 function pauseTimer() {
@@ -111,11 +154,10 @@ function stopTimer() {
 }
 
 function setTimerMode(mode) {
+    // Solo permitir cambio de modo si no hay timer corriendo
     if (timerState.isRunning) {
-        if (!confirm('Changing mode will stop the current timer. Continue?')) {
-            return;
-        }
-        stopTimer();
+        console.log('Timer is running, cannot change mode');
+        return;
     }
     
     // Update mode and time based on settings
@@ -154,6 +196,39 @@ function updateModeButtons() {
     }
 }
 
+function calculateTotalTime(sessionType) {
+    switch(sessionType) {
+        case 'work':
+            return settings.focusTime * 60;
+        case 'shortBreak':
+            return settings.shortBreak * 60;
+        case 'longBreak':
+            return settings.longBreak * 60;
+        default:
+            return settings.focusTime * 60;
+    }
+}
+
+function convertBackendStateToFrontend(backendState) {
+    const mode = backendState.sessionType === 'work' ? 'focus' : 
+                backendState.sessionType === 'shortBreak' ? 'shortBreak' : 'longBreak';
+    
+    // Siempre calcular el tiempo total basado en el tipo de sesión
+    const totalTime = calculateTotalTime(backendState.sessionType);
+    
+    // Actualizar la tarea actualmente corriendo
+    currentRunningTaskId = backendState.currentTask ? backendState.currentTask.id : null;
+    
+    return {
+        isRunning: backendState.state === 'running',
+        isPaused: backendState.state === 'paused',
+        timeRemaining: backendState.remainingTime,
+        totalTime: totalTime,
+        mode: mode,
+        completedPomodoros: backendState.completedPomodoros || 0
+    };
+}
+
 function updateTimerState(newState) {
     // Actualizar el estado con los nuevos valores
     Object.assign(timerState, newState);
@@ -164,6 +239,9 @@ function updateTimerState(newState) {
     updateModeButtons();
     updateControls();
     updateProgressRing();
+    
+    // Actualizar la visualización de tareas para mostrar cuál está corriendo
+    renderTasks();
 }
 
 function updateTimerDisplay() {
@@ -430,7 +508,15 @@ function renderTasks() {
 
 function createTaskElement(task, isCompleted = false) {
     const taskDiv = document.createElement('div');
-    taskDiv.className = isCompleted ? 'task-item completed' : 'task-item';
+    let taskClass = isCompleted ? 'task-item completed' : 'task-item';
+    
+    // Añadir clase especial si esta tarea está corriendo actualmente
+    const isRunning = currentRunningTaskId === task.id;
+    if (isRunning) {
+        taskClass += ' running';
+    }
+    
+    taskDiv.className = taskClass;
     
     const completed = task.completedPomodoros || 0;
     
@@ -443,10 +529,14 @@ function createTaskElement(task, isCompleted = false) {
         `<button class="task-action-btn" onclick="startTaskPomodoro('${task.id}')">▶️</button>
          <button class="task-action-btn complete-btn" onclick="completeTask('${task.id}')">✅</button>`;
     
+    // Indicador visual para tarea corriendo
+    const runningIndicator = isRunning ? 
+        '<div class="running-indicator">🍅 En progreso</div>' : '';
+    
     taskDiv.innerHTML = `
         <div class="task-info">
             <div class="task-name">${task.name}</div>
-            <div class="task-progress">${completed} pomodoros completed</div>
+            ${runningIndicator}
         </div>
         <div class="task-actions">
             ${actions}
@@ -478,18 +568,19 @@ function uncompleteTask(taskId) {
 }
 
 function deleteCompletedTask(taskId) {
-    if (confirm('¿Estás seguro de que quieres eliminar esta tarea completada?')) {
-        vscode.postMessage({
-            command: 'deleteCompletedTask',
-            taskId: taskId
-        });
-    }
+    console.log('deleteCompletedTask called with taskId:', taskId);
+    // Eliminar directamente sin confirmación modal ya que webview no permite confirm()
+    console.log('Sending delete message to VS Code');
+    vscode.postMessage({
+        command: 'deleteCompletedTask',
+        taskId: taskId
+    });
 }
 
 // Communication with VS Code
 function requestInitialData() {
     vscode.postMessage({
-        command: 'getTasks'
+        command: 'getInitialData'
     });
 }
 
@@ -499,10 +590,20 @@ window.addEventListener('message', event => {
     
     switch (message.command) {
         case 'initialData':
+            console.log('Received initial data:', message);
+            console.log('Current settings before update:', settings);
             settings = { ...settings, ...message.settings };
+            console.log('Settings after update:', settings);
             updateSettings();
+            
+            // Actualizar el timer con las configuraciones cargadas
             if (message.timerState) {
-                updateTimerState(message.timerState);
+                console.log('Restoring timer state from initial data:', message.timerState);
+                const frontendState = convertBackendStateToFrontend(message.timerState);
+                updateTimerState(frontendState);
+            } else if (!timerState.isRunning && !timerState.isPaused) {
+                // Solo actualizar si no hay timer corriendo
+                setTimerMode(timerState.mode);
             }
             break;
             
@@ -510,15 +611,15 @@ window.addEventListener('message', event => {
             const data = message.data;
             console.log('Received timer update:', data);
             
-            updateTimerState({
-                isRunning: data.state === 'running',
-                isPaused: data.state === 'paused',
-                timeRemaining: data.remainingTime,
-                totalTime: data.remainingTime + (timerState.totalTime - timerState.timeRemaining), // Mantener el total original
-                mode: data.sessionType === 'work' ? 'focus' : 
-                      data.sessionType === 'shortBreak' ? 'shortBreak' : 'longBreak',
-                completedPomodoros: data.completedPomodoros || 0
-            });
+            // Usar la función auxiliar para convertir el estado del backend
+            const frontendState = convertBackendStateToFrontend(data);
+            
+            // Solo preservar el tiempo total si ya había uno establecido y el timer está corriendo
+            if (timerState.isRunning && timerState.totalTime > 0) {
+                frontendState.totalTime = timerState.totalTime;
+            }
+            
+            updateTimerState(frontendState);
             break;
             
         case 'tasksUpdate':
