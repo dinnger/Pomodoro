@@ -1,0 +1,140 @@
+{
+  "name": "pomodoro-task-manager",
+  "displayName": "Pomodoro Task Manager",
+  "description": "Gestor de tareas con temporizador Pomodoro integrado",
+  "version": "1.0.0",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "views": {
+      "explorer": [
+        {
+          "id": "pomodoroTasks",
+          "name": "Pomodoro Tasks",
+          "when": "pomodoroTasksEnabled"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "pomodoroTasks.addTask",
+        "title": "Agregar Tarea",
+        "icon": "$(add)"
+      },
+      {
+        "command": "pomodoroTasks.startPomodoro",
+        "title": "Iniciar Pomodoro",
+        "icon": "$(play)"
+      },
+      {
+        "command": "pomodoroTasks.pausePomodoro",
+        "title": "Pausar Pomodoro",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "pomodoroTasks.stopPomodoro",
+        "title": "Detener Pomodoro",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "pomodoroTasks.editTask",
+        "title": "Editar Tarea",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "pomodoroTasks.deleteTask",
+        "title": "Eliminar Tarea",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "pomodoroTasks.completeTask",
+        "title": "Marcar como Completada",
+        "icon": "$(check)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "pomodoroTasks.addTask",
+          "when": "view == pomodoroTasks",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "pomodoroTasks.startPomodoro",
+          "when": "view == pomodoroTasks && viewItem == task",
+          "group": "inline"
+        },
+        {
+          "command": "pomodoroTasks.editTask",
+          "when": "view == pomodoroTasks && viewItem == task",
+          "group": "1_modification"
+        },
+        {
+          "command": "pomodoroTasks.completeTask",
+          "when": "view == pomodoroTasks && viewItem == task",
+          "group": "1_modification"
+        },
+        {
+          "command": "pomodoroTasks.deleteTask",
+          "when": "view == pomodoroTasks && viewItem == task",
+          "group": "2_danger"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Pomodoro Task Manager",
+      "properties": {
+        "pomodoroTasks.workDuration": {
+          "type": "number",
+          "default": 25,
+          "description": "Duración del tiempo de trabajo en minutos"
+        },
+        "pomodoroTasks.shortBreakDuration": {
+          "type": "number",
+          "default": 5,
+          "description": "Duración del descanso corto en minutos"
+        },
+        "pomodoroTasks.longBreakDuration": {
+          "type": "number",
+          "default": 15,
+          "description": "Duración del descanso largo en minutos"
+        },
+        "pomodoroTasks.longBreakInterval": {
+          "type": "number",
+          "default": 4,
+          "description": "Número de pomodoros antes de un descanso largo"
+        },
+        "pomodoroTasks.autoStartBreaks": {
+          "type": "boolean",
+          "default": false,
+          "description": "Iniciar automáticamente los descansos"
+        },
+        "pomodoroTasks.notifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Mostrar notificaciones cuando termine un pomodoro"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.74.0",
+    "@types/node": "16.x",
+    "typescript": "^4.9.4"
+  }
+}
