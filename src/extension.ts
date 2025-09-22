@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { TaskProvider, TaskItem } from './taskProvider';
 import { TaskService } from './taskService';
 import { PomodoroTimer } from './pomodoroTimer';
+import { PomodoroWebviewProvider } from './pomodoroWebviewProvider';
 import { Task } from './types';
 
 export function activate(context: vscode.ExtensionContext) {
@@ -15,7 +16,21 @@ export function activate(context: vscode.ExtensionContext) {
     const taskService = new TaskService(taskProvider);
     const pomodoroTimer = new PomodoroTimer(context);
 
-    // Registrar vista del árbol
+    // Registrar WebView Provider
+    const webviewProvider = new PomodoroWebviewProvider(
+        context.extensionUri,
+        pomodoroTimer,
+        taskService
+    );
+    
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(
+            PomodoroWebviewProvider.viewType,
+            webviewProvider
+        )
+    );
+
+    // Registrar vista del árbol (mantener por compatibilidad)
     const treeView = vscode.window.createTreeView('pomodoroTasks', {
         treeDataProvider: taskProvider,
         showCollapseAll: false
@@ -24,6 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Eventos del temporizador
     pomodoroTimer.onPomodoroComplete((task: Task) => {
         taskService.incrementPomodoroCount(task.id);
+        webviewProvider.updateTasks(); // Actualizar webview
         vscode.window.showInformationMessage(
             `¡Pomodoro completado para "${task.name}"! 🎉`
         );

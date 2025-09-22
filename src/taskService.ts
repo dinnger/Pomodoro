@@ -11,6 +11,10 @@ export class TaskService {
         private taskProvider: TaskProvider
     ) {}
 
+    getAllTasks(): Task[] {
+        return this.taskProvider.getAllTasks();
+    }
+
     async createTask(): Promise<void> {
         const name = await vscode.window.showInputBox({
             prompt: 'Nombre de la tarea',

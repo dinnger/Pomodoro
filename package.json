@@ -19,11 +19,26 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pomodoro-container",
+          "title": "Pomodoro Task Manager",
+          "icon": "$(clock)"
+        }
+      ]
+    },
     "views": {
-      "explorer": [
+      "pomodoro-container": [
+        {
+          "type": "webview",
+          "id": "pomodoroWebview",
+          "name": "Timer",
+          "when": "pomodoroTasksEnabled"
+        },
         {
           "id": "pomodoroTasks",
-          "name": "Pomodoro Tasks",
+          "name": "Tasks",
           "when": "pomodoroTasksEnabled"
         }
       ]
