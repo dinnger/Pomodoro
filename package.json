@@ -78,12 +78,27 @@
         "command": "pomodoroTasks.completeTask",
         "title": "Pomodoro: Marcar como Completada",
         "icon": "$(check)"
+      },
+      {
+        "command": "pomodoroTasks.scanBookmarks",
+        "title": "Pomodoro: Escanear comentarios TODO/FIXME",
+        "icon": "$(search)"
+      },
+      {
+        "command": "pomodoroTasks.openBookmark",
+        "title": "Pomodoro: Abrir ubicación del bookmark",
+        "icon": "$(go-to-file)"
       }
     ],
     "menus": {
       "view/title": [
         {
           "command": "pomodoroTasks.addTask",
+          "when": "view == pomodoroTasks",
+          "group": "navigation"
+        },
+        {
+          "command": "pomodoroTasks.scanBookmarks",
           "when": "view == pomodoroTasks",
           "group": "navigation"
         }
@@ -107,6 +122,26 @@
         {
           "command": "pomodoroTasks.deleteTask",
           "when": "view == pomodoroTasks && viewItem == task",
+          "group": "2_danger"
+        },
+        {
+          "command": "pomodoroTasks.openBookmark",
+          "when": "view == pomodoroTasks && viewItem == bookmark",
+          "group": "inline"
+        },
+        {
+          "command": "pomodoroTasks.startPomodoro",
+          "when": "view == pomodoroTasks && viewItem == bookmark",
+          "group": "1_modification"
+        },
+        {
+          "command": "pomodoroTasks.completeTask",
+          "when": "view == pomodoroTasks && viewItem == bookmark",
+          "group": "1_modification"
+        },
+        {
+          "command": "pomodoroTasks.deleteTask",
+          "when": "view == pomodoroTasks && viewItem == bookmark",
           "group": "2_danger"
         }
       ]

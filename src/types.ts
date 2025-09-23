@@ -7,6 +7,9 @@ export interface Task {
     isCompleted: boolean;
     createdAt: Date;
     completedAt?: Date;
+    isBookmark?: boolean;
+    filePath?: string;
+    lineNumber?: number;
 }
 
 export interface PomodoroSession {

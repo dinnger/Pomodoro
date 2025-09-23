@@ -1,15 +1,22 @@
 import * as vscode from 'vscode';
 import { Task } from './types';
 import { TaskProvider } from './taskProvider';
+import { BookmarkService } from './bookmarkService';
 
 function generateId(): string {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
 export class TaskService {
+    private webviewProvider?: any; // Referencia al webview provider
+
     constructor(
         private taskProvider: TaskProvider
     ) {}
+
+    setWebviewProvider(webviewProvider: any): void {
+        this.webviewProvider = webviewProvider;
+    }
 
     getAllTasks(): Task[] {
         return this.taskProvider.getAllTasks();
@@ -162,5 +169,85 @@ export class TaskService {
             console.log('Task not found for deletion');
             vscode.window.showErrorMessage('Tarea no encontrada para eliminar');
         }
+    }
+
+    /**
+     * Elimina todas las tareas que son bookmarks
+     */
+    deleteAllBookmarks(): void {
+        const tasks = this.getAllTasks();
+        const bookmarks = tasks.filter(task => task.isBookmark);
+        
+        bookmarks.forEach(bookmark => {
+            this.taskProvider.deleteTask(bookmark.id);
+        });
+        
+        console.log(`Eliminados ${bookmarks.length} bookmarks`);
+    }
+
+    /**
+     * Escanea el workspace en busca de comentarios TODO/FIXME y los convierte en tareas
+     */
+    async scanAndCreateBookmarks(): Promise<void> {
+        try {
+            let bookmarkComments: any[] = [];
+
+            // Mostrar progreso
+            await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: "Escaneando comentarios TODO/FIXME...",
+                cancellable: false
+            }, async (progress) => {
+                progress.report({ increment: 0, message: "Iniciando escaneo..." });
+
+                // Eliminar bookmarks existentes
+                this.deleteAllBookmarks();
+                progress.report({ increment: 30, message: "Limpiando bookmarks anteriores..." });
+
+                // Actualizar el webview si está disponible
+                if (this.webviewProvider) this.webviewProvider.updateTasks();
+            
+
+                // Buscar nuevos comentarios
+                bookmarkComments = await BookmarkService.findBookmarkComments();
+                progress.report({ increment: 60, message: `Encontrados ${bookmarkComments.length} comentarios...` });
+
+                // Crear tareas desde los comentarios
+                bookmarkComments.forEach(comment => {
+                    const task = BookmarkService.createTaskFromBookmark(comment);
+                    this.taskProvider.addTask(task);
+                });
+
+                progress.report({ increment: 100, message: "Completado" });
+            });
+
+            if (bookmarkComments.length > 0) {
+                vscode.window.showInformationMessage(
+                    `Se encontraron ${bookmarkComments.length} comentarios TODO/FIXME y se agregaron como tareas`
+                );
+            } else {
+                vscode.window.showInformationMessage('No se encontraron comentarios TODO/FIXME en el workspace');
+            }
+
+            // Actualizar el webview si está disponible
+            if (this.webviewProvider) this.webviewProvider.updateTasks();
+            
+
+        } catch (error) {
+            console.error('Error escaneando bookmarks:', error);
+            vscode.window.showErrorMessage('Error al escanear comentarios TODO/FIXME');
+        }
+    }
+
+    /**
+     * Abre la ubicación de un bookmark en el editor
+     */
+    async openBookmarkLocation(task: Task): Promise<void> {
+        if (!task.isBookmark) {
+            vscode.window.showWarningMessage('Esta tarea no es un bookmark');
+            return;
+        }
+
+        await BookmarkService.openBookmarkLocation(task);
     }
 }

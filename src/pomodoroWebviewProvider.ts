@@ -101,6 +101,9 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
                     case 'showNotification':
                         this._showNotification(message.message, message.type);
                         break;
+                    case 'selectTask':
+                        this._selectTask(message.taskId);
+                        break;
                 }
             },
             undefined,
@@ -336,6 +339,45 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
             default:
                 vscode.window.showInformationMessage(message);
                 break;
+        }
+    }
+
+    private async _selectTask(taskId: string) {
+        const task = this.taskService.getAllTasks().find(t => t.id === taskId);
+        
+        if (!task) {
+            vscode.window.showErrorMessage('Tarea no encontrada');
+            return;
+        }
+
+        if (task.isBookmark) {
+            // Si es un bookmark, abrir el archivo en la línea correspondiente
+            await this.taskService.openBookmarkLocation(task);
+        } else {
+            // Para tareas normales, mostrar información (comportamiento anterior)
+            const completedPomodoros = task.completedPomodoros;
+            const estimatedPomodoros = task.estimatedPomodoros;
+            const progress = Math.round((completedPomodoros / estimatedPomodoros) * 100);
+            
+            vscode.window.showInformationMessage(
+                `${task.name}\nProgreso: ${completedPomodoros}/${estimatedPomodoros} pomodoros (${progress}%)\n${task.description || ''}`,
+                'Iniciar Pomodoro',
+                'Editar',
+                'Eliminar'
+            ).then(selection => {
+                switch (selection) {
+                    case 'Iniciar Pomodoro':
+                        this.pomodoroTimer.startPomodoro(task);
+                        this._sendTimerUpdate(this.pomodoroTimer.getStatus());
+                        break;
+                    case 'Editar':
+                        this.taskService.editTask(task);
+                        break;
+                    case 'Eliminar':
+                        this.taskService.deleteTask(task);
+                        break;
+                }
+            });
         }
     }
 

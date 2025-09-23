@@ -11,10 +11,10 @@ export class TaskItem extends vscode.TreeItem {
         this.tooltip = this.getTooltip();
         this.description = this.getDescription();
         this.iconPath = this.getIcon();
-        this.contextValue = 'task';
+        this.contextValue = this.task.isBookmark ? 'bookmark' : 'task';
         this.command = {
-            command: 'pomodoroTasks.selectTask',
-            title: 'Seleccionar Tarea',
+            command: this.task.isBookmark ? 'pomodoroTasks.openBookmark' : 'pomodoroTasks.selectTask',
+            title: this.task.isBookmark ? 'Abrir Bookmark' : 'Seleccionar Tarea',
             arguments: [task]
         };
     }
@@ -23,15 +23,43 @@ export class TaskItem extends vscode.TreeItem {
         const completed = this.task.completedPomodoros;
         const status = this.task.isCompleted ? '✅ Completada' : '⏳ Pendiente';
         
-        return `${this.task.name}\n${status}\nPomodoros completados: ${completed}\n${this.task.description || ''}`;
+        let tooltip = `${this.task.name}\n${status}\nPomodoros completados: ${completed}`;
+        
+        if (this.task.isBookmark && this.task.filePath && this.task.lineNumber) {
+            const fileName = this.task.filePath.split('/').pop() || this.task.filePath;
+            tooltip += `\n\n📍 Bookmark en: ${fileName}:${this.task.lineNumber}`;
+            tooltip += `\n📁 ${this.task.filePath}`;
+        }
+        
+        if (this.task.description) {
+            tooltip += `\n\n${this.task.description}`;
+        }
+        
+        return tooltip;
     }
 
     private getDescription(): string {
         const completed = this.task.completedPomodoros;
+        
+        if (this.task.isBookmark && this.task.filePath && this.task.lineNumber) {
+            const fileName = this.task.filePath.split('/').pop() || 'archivo';
+            return `${completed} 🍅 | 📍 ${fileName}:${this.task.lineNumber}`;
+        }
+        
         return `${completed} 🍅`;
     }
 
     private getIcon(): vscode.ThemeIcon {
+        if (this.task.isBookmark) {
+            // Iconos específicos para bookmarks
+            if (this.task.isCompleted) {
+                return new vscode.ThemeIcon('bookmark-fill', new vscode.ThemeColor('charts.green'));
+            } else {
+                return new vscode.ThemeIcon('bookmark', new vscode.ThemeColor('charts.orange'));
+            }
+        }
+        
+        // Iconos para tareas normales
         if (this.task.isCompleted) {
             return new vscode.ThemeIcon('check-all', new vscode.ThemeColor('charts.green'));
         } else if (this.task.completedPomodoros > 0) {

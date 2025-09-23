@@ -23,6 +23,9 @@ export function activate(context: vscode.ExtensionContext) {
         taskService
     );
     
+    // Establecer referencia bidireccional
+    taskService.setWebviewProvider(webviewProvider);
+    
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
             PomodoroWebviewProvider.viewType,
@@ -94,6 +97,20 @@ export function activate(context: vscode.ExtensionContext) {
                         break;
                 }
             });
+        }),
+
+        // Comandos de bookmarks
+        vscode.commands.registerCommand('pomodoroTasks.scanBookmarks', async () => {
+            await taskService.scanAndCreateBookmarks();
+        }),
+
+        vscode.commands.registerCommand('pomodoroTasks.openBookmark', async (task: Task) => {
+            if (task.isBookmark) {
+                await taskService.openBookmarkLocation(task);
+            } else {
+                // Si no es un bookmark, ejecutar el comportamiento normal
+                vscode.commands.executeCommand('pomodoroTasks.selectTask', task);
+            }
         }),
 
         // Control del temporizador

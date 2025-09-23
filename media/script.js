@@ -516,6 +516,11 @@ function createTaskElement(task, isCompleted = false) {
         taskClass += ' running';
     }
     
+    // Añadir clase especial para bookmarks
+    if (task.isBookmark) {
+        taskClass += ' bookmark';
+    }
+    
     taskDiv.className = taskClass;
     
     const completed = task.completedPomodoros || 0;
@@ -533,15 +538,28 @@ function createTaskElement(task, isCompleted = false) {
     const runningIndicator = isRunning ? 
         '<div class="running-indicator">🍅 En progreso</div>' : '';
     
+    // Indicador para bookmarks
+    const bookmarkIndicator = task.isBookmark ? 
+        '<div class="bookmark-indicator">📍 Bookmark</div>' : '';
+    
     taskDiv.innerHTML = `
-        <div class="task-info">
+        <div class="task-info" data-task-id="${task.id}">
             <div class="task-name">${task.name}</div>
             ${runningIndicator}
+            ${bookmarkIndicator}
         </div>
         <div class="task-actions">
             ${actions}
         </div>
     `;
+    
+    // Agregar event listener para el click en la información de la tarea
+    const taskInfo = taskDiv.querySelector('.task-info');
+    taskInfo.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        selectTask(task.id);
+    });
     
     return taskDiv;
 }
@@ -573,6 +591,13 @@ function deleteCompletedTask(taskId) {
     console.log('Sending delete message to VS Code');
     vscode.postMessage({
         command: 'deleteCompletedTask',
+        taskId: taskId
+    });
+}
+
+function selectTask(taskId) {
+    vscode.postMessage({
+        command: 'selectTask',
         taskId: taskId
     });
 }
