@@ -135,12 +135,68 @@ export class PomodoroTimer {
             this.status.remainingTime--;
             this.updateStatusBar();
             
+            // Verificar si es momento de reproducir advertencia de sonido
+            this.checkCustomWarnings();
+            
             if (this.status.remainingTime <= 0) {
                 this.onTimerFinished();
             }
             
             this._onTimerUpdate.fire(this.status);
         }, 1000);
+    }
+
+    private checkCustomWarnings(): void {
+        const config = vscode.workspace.getConfiguration('pomodoroTasks');
+        const oneMinuteWarning = config.get<boolean>('oneMinuteWarning', true);
+        const customWarningMinutes = config.get<string>('customWarningMinutes', '5,3,1');
+        
+        if (!oneMinuteWarning) {
+            return;
+        }
+
+        // Parsear los minutos personalizados
+        const warningMinutes = this.parseWarningMinutes(customWarningMinutes);
+        const remainingMinutes = Math.floor(this.status.remainingTime / 60);
+        const remainingSeconds = this.status.remainingTime % 60;
+        
+        // Verificar si estamos exactamente en uno de los minutos de advertencia (en segundos exactos)
+        if (remainingSeconds === 0 && warningMinutes.includes(remainingMinutes)) {
+            this.playWarningSound(remainingMinutes);
+        }
+    }
+
+    private parseWarningMinutes(customWarningMinutes: string): number[] {
+        try {
+            return customWarningMinutes
+                .split(',')
+                .map(min => parseInt(min.trim()))
+                .filter(min => min > 0 && min <= 60)
+                .sort((a, b) => b - a); // Ordenar de mayor a menor
+        } catch (error) {
+            // Si hay error en el parsing, usar valores por defecto
+            return [5, 3, 1];
+        }
+    }
+
+    private playWarningSound(minutes: number): void {
+        const message = minutes === 1 
+            ? '⏰ Queda 1 minuto para completar el pomodoro'
+            : `⏰ Quedan ${minutes} minutos para completar el pomodoro`;
+            
+        // Mostrar notificación de advertencia
+        vscode.window.showWarningMessage(message);
+        
+        // Enviar comando al webview para reproducir el sonido
+        this._onTimerUpdate.fire({ 
+            ...this.status, 
+            playSound: true 
+        });
+    }
+
+    private playOneMinuteWarning(): void {
+        // Método mantenido para compatibilidad pero ahora usa el nuevo sistema
+        this.playWarningSound(1);
     }
 
     private stopTimer(): void {

@@ -12,7 +12,10 @@ let settings = {
     focusTime: 25,
     shortBreak: 5,
     longBreak: 15,
-    notifications: true
+    notifications: true,
+    silentActions: false,
+    oneMinuteWarning: true,
+    customWarningMinutes: "5,3,1"
 };
 
 let tasks = [];
@@ -45,6 +48,12 @@ const focusTimeValue = document.getElementById('focusTimeValue');
 const shortBreakValue = document.getElementById('shortBreakValue');
 const longBreakValue = document.getElementById('longBreakValue');
 const notificationsToggle = document.getElementById('notificationsToggle');
+const silentActionsToggle = document.getElementById('silentActionsToggle');
+const oneMinuteWarningToggle = document.getElementById('oneMinuteWarningToggle');
+const customWarningMinutes = document.getElementById('customWarningMinutes');
+
+// Audio element for sound notifications
+let audio = null;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
@@ -53,6 +62,7 @@ document.addEventListener('DOMContentLoaded', function() {
     updateTimerDisplay();
     updateModeButtons();
     updateSettings();
+    initializeAudio();
     
     // Request initial data immediately and with a small delay to ensure webview is ready
     requestInitialData();
@@ -60,6 +70,14 @@ document.addEventListener('DOMContentLoaded', function() {
         requestInitialData();
     }, 100);
 });
+
+// Initialize audio element
+function initializeAudio() {
+    audio = new Audio();
+    audio.src = './sound.mp3';
+    audio.preload = 'auto';
+    audio.volume = 0.7; // Set volume to 70%
+}
 
 // Event Listeners
 function setupEventListeners() {
@@ -89,6 +107,12 @@ function setupEventListeners() {
     
     // Notifications toggle
     notificationsToggle.addEventListener('change', updateNotificationsSetting);
+    silentActionsToggle.addEventListener('change', updateNotificationsSetting);
+    oneMinuteWarningToggle.addEventListener('change', updateNotificationsSetting);
+    
+    // Custom warning minutes input
+    customWarningMinutes.addEventListener('input', updateNotificationsSetting);
+    customWarningMinutes.addEventListener('blur', validateCustomWarningMinutes);
     
     // Tasks
     addTaskBtn.addEventListener('click', addTask);
@@ -372,6 +396,9 @@ function adjustSetting(event) {
 
 function updateNotificationsSetting() {
     settings.notifications = notificationsToggle.checked;
+    settings.silentActions = silentActionsToggle.checked;
+    settings.oneMinuteWarning = oneMinuteWarningToggle.checked;
+    settings.customWarningMinutes = customWarningMinutes.value;
     sendSettingsUpdate();
 }
 
@@ -380,6 +407,38 @@ function updateSettings() {
     shortBreakValue.textContent = settings.shortBreak.toString().padStart(2, '0');
     longBreakValue.textContent = settings.longBreak.toString().padStart(2, '0');
     notificationsToggle.checked = settings.notifications;
+    silentActionsToggle.checked = settings.silentActions;
+    oneMinuteWarningToggle.checked = settings.oneMinuteWarning;
+    customWarningMinutes.value = settings.customWarningMinutes;
+}
+
+function validateCustomWarningMinutes() {
+    const value = customWarningMinutes.value.trim();
+    if (!value) {
+        customWarningMinutes.value = "5,3,1";
+        settings.customWarningMinutes = "5,3,1";
+        sendSettingsUpdate();
+        return;
+    }
+    
+    // Validar formato: solo números y comas
+    const regex = /^(\d+,)*\d+$/;
+    if (!regex.test(value)) {
+        customWarningMinutes.value = "5,3,1";
+        settings.customWarningMinutes = "5,3,1";
+        sendSettingsUpdate();
+        return;
+    }
+    
+    // Validar que los números sean razonables (1-60 minutos)
+    const minutes = value.split(',').map(m => parseInt(m.trim()));
+    const validMinutes = minutes.filter(m => m >= 1 && m <= 60);
+    
+    if (validMinutes.length !== minutes.length) {
+        customWarningMinutes.value = "5,3,1";
+        settings.customWarningMinutes = "5,3,1";
+        sendSettingsUpdate();
+    }
 }
 
 function sendSettingsUpdate() {
@@ -389,7 +448,10 @@ function sendSettingsUpdate() {
             focusTime: settings.focusTime,
             shortBreak: settings.shortBreak,
             longBreak: settings.longBreak,
-            notifications: settings.notifications
+            notifications: settings.notifications,
+            silentActions: settings.silentActions,
+            oneMinuteWarning: settings.oneMinuteWarning,
+            customWarningMinutes: settings.customWarningMinutes
         }
     });
 }
@@ -636,6 +698,11 @@ window.addEventListener('message', event => {
             const data = message.data;
             console.log('Received timer update:', data);
             
+            // Reproducir sonido si está habilitado y la bandera está presente
+            if (data.playSound && settings.oneMinuteWarning && audio) {
+                playWarningSound();
+            }
+            
             // Usar la función auxiliar para convertir el estado del backend
             const frontendState = convertBackendStateToFrontend(data);
             
@@ -658,6 +725,29 @@ function formatTime(seconds) {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+}
+
+// Play warning sound for 1-minute notification
+function playWarningSound() {
+    if (audio) {
+        try {
+            audio.currentTime = 0; // Reset to beginning
+            const playPromise = audio.play();
+            
+            // Handle promise-based play (modern browsers)
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        console.log('Warning sound played successfully');
+                    })
+                    .catch(error => {
+                        console.warn('Could not play warning sound:', error);
+                    });
+            }
+        } catch (error) {
+            console.warn('Error playing warning sound:', error);
+        }
+    }
 }
 
 // Keyboard shortcuts

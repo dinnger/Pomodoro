@@ -207,6 +207,35 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
                                         <label for="notificationsToggle"></label>
                                     </div>
                                 </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label>Silent Actions</label>
+                                        <div class="setting-description">Silenciar notificaciones de crear, editar, eliminar tareas</div>
+                                    </div>
+                                    <div class="toggle-switch">
+                                        <input type="checkbox" id="silentActionsToggle">
+                                        <label for="silentActionsToggle"></label>
+                                    </div>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label>1-Minute Warning Sound</label>
+                                        <div class="setting-description">Reproducir sonido cuando falte 1 minuto</div>
+                                    </div>
+                                    <div class="toggle-switch">
+                                        <input type="checkbox" id="oneMinuteWarningToggle" checked>
+                                        <label for="oneMinuteWarningToggle"></label>
+                                    </div>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <label>Custom Warning Minutes</label>
+                                        <div class="setting-description">Minutos para advertencias separados por coma (ej: 5,3,1)</div>
+                                    </div>
+                                    <div class="setting-input">
+                                        <input type="text" id="customWarningMinutes" placeholder="5,3,1" maxlength="20">
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -253,7 +282,10 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
                     focusTime: config.get('workDuration', 25),
                     shortBreak: config.get('shortBreakDuration', 5),
                     longBreak: config.get('longBreakDuration', 15),
-                    notifications: config.get('notifications', true)
+                    notifications: config.get('notifications', true),
+                    silentActions: config.get('silentActions', false),
+                    oneMinuteWarning: config.get('oneMinuteWarning', true),
+                    customWarningMinutes: config.get('customWarningMinutes', '5,3,1')
                 },
                 timerState: this.pomodoroTimer.getStatus()
             };
@@ -287,6 +319,9 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
         config.update('shortBreakDuration', settings.shortBreak, vscode.ConfigurationTarget.Global);
         config.update('longBreakDuration', settings.longBreak, vscode.ConfigurationTarget.Global);
         config.update('notifications', settings.notifications, vscode.ConfigurationTarget.Global);
+        config.update('silentActions', settings.silentActions, vscode.ConfigurationTarget.Global);
+        config.update('oneMinuteWarning', settings.oneMinuteWarning, vscode.ConfigurationTarget.Global);
+        config.update('customWarningMinutes', settings.customWarningMinutes, vscode.ConfigurationTarget.Global);
     }
 
     private _addTask(taskName: string) {

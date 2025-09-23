@@ -178,6 +178,21 @@
           "type": "boolean",
           "default": true,
           "description": "Mostrar notificaciones cuando termine un pomodoro"
+        },
+        "pomodoroTasks.silentActions": {
+          "type": "boolean",
+          "default": false,
+          "description": "Silenciar notificaciones de acciones (crear, eliminar, editar, pausar, detener)"
+        },
+        "pomodoroTasks.oneMinuteWarning": {
+          "type": "boolean",
+          "default": true,
+          "description": "Reproducir sonido de advertencia cuando falte 1 minuto"
+        },
+        "pomodoroTasks.customWarningMinutes": {
+          "type": "string",
+          "default": "5,3,1",
+          "description": "Minutos para advertencias de sonido separados por coma (ej: 5,3,1)"
         }
       }
     }

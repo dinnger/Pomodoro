@@ -18,6 +18,27 @@ export class TaskService {
         this.webviewProvider = webviewProvider;
     }
 
+    private showActionNotification(type: 'info' | 'warning' | 'error', message: string): void {
+        const config = vscode.workspace.getConfiguration('pomodoroTasks');
+        const silentActions = config.get('silentActions', false);
+        
+        if (silentActions) {
+            return; // No mostrar notificaciones si está configurado para silenciarlas
+        }
+
+        switch (type) {
+            case 'info':
+                vscode.window.showInformationMessage(message);
+                break;
+            case 'warning':
+                vscode.window.showWarningMessage(message);
+                break;
+            case 'error':
+                vscode.window.showErrorMessage(message);
+                break;
+        }
+    }
+
     getAllTasks(): Task[] {
         return this.taskProvider.getAllTasks();
     }
@@ -27,7 +48,7 @@ export class TaskService {
         const task = tasks.find(t => t.id === taskId);
         
         if (!task) {
-            vscode.window.showErrorMessage('Tarea no encontrada');
+            this.showActionNotification('error', 'Tarea no encontrada');
             return;
         }
 
@@ -36,7 +57,7 @@ export class TaskService {
             completedAt: new Date()
         });
 
-        vscode.window.showInformationMessage(`Tarea "${task.name}" marcada como completada`);
+        this.showActionNotification('info', `Tarea "${task.name}" marcada como completada`);
     }
 
     createTaskFromName(taskName: string): void {
@@ -120,7 +141,7 @@ export class TaskService {
             estimatedPomodoros
         });
 
-        vscode.window.showInformationMessage(`Tarea "${name}" actualizada exitosamente`);
+        this.showActionNotification('info', `Tarea "${name}" actualizada exitosamente`);
     }
 
     async deleteTask(task: Task): Promise<void> {
@@ -132,7 +153,7 @@ export class TaskService {
 
         if (response === 'Sí') {
             this.taskProvider.deleteTask(task.id);
-            vscode.window.showInformationMessage(`Tarea "${task.name}" eliminada`);
+            this.showActionNotification('info', `Tarea "${task.name}" eliminada`);
         }
     }
 
@@ -152,7 +173,7 @@ export class TaskService {
                 isCompleted: false,
                 completedAt: undefined
             });
-            vscode.window.showInformationMessage(`Tarea "${task.name}" regresada a pendientes`);
+            this.showActionNotification('info', `Tarea "${task.name}" regresada a pendientes`);
         }
     }
 
@@ -164,10 +185,10 @@ export class TaskService {
         if (task) {
             console.log('Deleting task:', task.name);
             this.taskProvider.deleteTask(taskId);
-            vscode.window.showInformationMessage(`Tarea "${task.name}" eliminada`);
+            this.showActionNotification('info', `Tarea "${task.name}" eliminada`);
         } else {
             console.log('Task not found for deletion');
-            vscode.window.showErrorMessage('Tarea no encontrada para eliminar');
+            this.showActionNotification('error', 'Tarea no encontrada para eliminar');
         }
     }
 
