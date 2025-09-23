@@ -122,6 +122,7 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
     private _getHtmlForWebview(webview: vscode.Webview): string {
         const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'style.css'));
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'script.js'));
+        const soundUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'media', 'sound.mp3'));
 
         return `<!DOCTYPE html>
             <html lang="en">
@@ -268,6 +269,10 @@ export class PomodoroWebviewProvider implements vscode.WebviewViewProvider {
                     </div>
                 </div>
 
+                <script>
+                    // Set the sound URI for the audio system
+                    window.SOUND_URI = '${soundUri}';
+                </script>
                 <script src="${scriptUri}"></script>
             </body>
             </html>`;

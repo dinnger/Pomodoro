@@ -54,6 +54,9 @@ const customWarningMinutes = document.getElementById('customWarningMinutes');
 
 // Audio element for sound notifications
 let audio = null;
+let audioUnlocked = false; // Flag to track if audio has been unlocked
+let audioLoaded = false; // Flag to track if audio file is loaded
+let unlockAttempts = 0; // Counter for unlock attempts
 
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
@@ -63,6 +66,9 @@ document.addEventListener('DOMContentLoaded', function() {
     updateModeButtons();
     updateSettings();
     initializeAudio();
+    
+    // Make debug function available
+    debugAudio();
     
     // Request initial data immediately and with a small delay to ensure webview is ready
     requestInitialData();
@@ -74,9 +80,92 @@ document.addEventListener('DOMContentLoaded', function() {
 // Initialize audio element
 function initializeAudio() {
     audio = new Audio();
-    audio.src = './sound.mp3';
+    
+    // Use the sound URI provided by the webview provider
+    if (window.SOUND_URI) {
+        audio.src = window.SOUND_URI;
+        console.log('Audio source set to:', window.SOUND_URI);
+    } else {
+        // Fallback to relative path (shouldn't happen in production)
+        audio.src = './sound.mp3';
+        console.warn('Using fallback audio path - SOUND_URI not available');
+    }
+    
     audio.preload = 'auto';
     audio.volume = 0.7; // Set volume to 70%
+    
+    // Add event listeners for audio loading
+    audio.addEventListener('canplaythrough', () => {
+        audioLoaded = true;
+        console.log('Audio file loaded successfully');
+    });
+    
+    audio.addEventListener('error', (e) => {
+        console.warn('Audio file failed to load:', e);
+        audioLoaded = false;
+    });
+    
+    audio.addEventListener('loadstart', () => {
+        console.log('Audio loading started');
+    });
+    
+    // Set up audio unlock on first user interaction
+    setupAudioUnlock();
+}
+
+// Setup audio unlock mechanism
+function setupAudioUnlock() {
+    const unlockEvents = ['click', 'touchstart', 'keydown'];
+    const maxAttempts = 3; // Limit unlock attempts
+    
+    function unlockAudio() {
+        // Skip if already unlocked or too many attempts
+        if (audioUnlocked || unlockAttempts >= maxAttempts) {
+            return;
+        }
+        
+        // Skip if audio not loaded yet
+        if (!audio || !audioLoaded) {
+            console.log('Audio not ready for unlock - file not loaded yet');
+            return;
+        }
+        
+        unlockAttempts++;
+        console.log(`Audio unlock attempt ${unlockAttempts}/${maxAttempts}`);
+        
+        // Try to play and immediately pause to unlock audio context
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise
+                .then(() => {
+                    audio.pause();
+                    audio.currentTime = 0;
+                    audioUnlocked = true;
+                    console.log('Audio context unlocked successfully');
+                    
+                    // Remove event listeners after successful unlock
+                    unlockEvents.forEach(event => {
+                        document.removeEventListener(event, unlockAudio);
+                    });
+                })
+                .catch((error) => {
+                    console.log(`Audio unlock attempt ${unlockAttempts} failed:`, error.message);
+                    
+                    // If we've reached max attempts, stop trying
+                    if (unlockAttempts >= maxAttempts) {
+                        console.warn('Max audio unlock attempts reached. Audio notifications will use visual fallback.');
+                        unlockEvents.forEach(event => {
+                            document.removeEventListener(event, unlockAudio);
+                        });
+                    }
+                });
+        }
+    }
+    
+    // Add event listeners for user interactions
+    unlockEvents.forEach(event => {
+        document.addEventListener(event, unlockAudio, { once: false, passive: true });
+    });
 }
 
 // Event Listeners
@@ -256,9 +345,7 @@ function convertBackendStateToFrontend(backendState) {
 function updateTimerState(newState) {
     // Actualizar el estado con los nuevos valores
     Object.assign(timerState, newState);
-    
-    console.log('Timer state updated:', timerState);
-    
+
     updateTimerDisplay();
     updateModeButtons();
     updateControls();
@@ -288,13 +375,10 @@ function updateTimerDisplay() {
 }
 
 function updateControls() {
-    console.log('Updating controls with state:', timerState);
-    
     // Limpiar clases de animación
     timerCircle.classList.remove('running');
     
     if (timerState.isRunning && !timerState.isPaused) {
-        console.log('Setting to running state');
         // Timer está corriendo
         startBtn.style.display = 'none';
         pauseBtn.style.display = 'inline-block';
@@ -306,7 +390,6 @@ function updateControls() {
         pauseBtn.classList.add('primary');
         
     } else if (timerState.isPaused) {
-        console.log('Setting to paused state');
         // Timer está pausado
         startBtn.style.display = 'inline-block';
         startBtn.textContent = 'RESUME';
@@ -685,7 +768,6 @@ window.addEventListener('message', event => {
             
             // Actualizar el timer con las configuraciones cargadas
             if (message.timerState) {
-                console.log('Restoring timer state from initial data:', message.timerState);
                 const frontendState = convertBackendStateToFrontend(message.timerState);
                 updateTimerState(frontendState);
             } else if (!timerState.isRunning && !timerState.isPaused) {
@@ -696,7 +778,6 @@ window.addEventListener('message', event => {
             
         case 'timerUpdate':
             const data = message.data;
-            console.log('Received timer update:', data);
             
             // Reproducir sonido si está habilitado y la bandera está presente
             if (data.playSound && settings.oneMinuteWarning && audio) {
@@ -729,24 +810,120 @@ function formatTime(seconds) {
 
 // Play warning sound for 1-minute notification
 function playWarningSound() {
-    if (audio) {
-        try {
-            audio.currentTime = 0; // Reset to beginning
-            const playPromise = audio.play();
-            
-            // Handle promise-based play (modern browsers)
-            if (playPromise !== undefined) {
-                playPromise
-                    .then(() => {
-                        console.log('Warning sound played successfully');
-                    })
-                    .catch(error => {
-                        console.warn('Could not play warning sound:', error);
-                    });
-            }
-        } catch (error) {
-            console.warn('Error playing warning sound:', error);
+    console.log('playWarningSound called - Audio state:', {
+        audioExists: !!audio,
+        audioLoaded: audioLoaded,
+        audioUnlocked: audioUnlocked,
+        unlockAttempts: unlockAttempts
+    });
+    
+    if (!audio) {
+        console.warn('Audio element not initialized');
+        showVisualNotification();
+        return;
+    }
+    
+    if (!audioLoaded) {
+        console.warn('Audio file not loaded yet');
+        showVisualNotification();
+        return;
+    }
+    
+    if (!audioUnlocked) {
+        console.warn('Audio not unlocked yet - user interaction required first');
+        showVisualNotification();
+        return;
+    }
+    
+    try {
+        audio.currentTime = 0; // Reset to beginning
+        const playPromise = audio.play();
+        
+        // Handle promise-based play (modern browsers)
+        if (playPromise !== undefined) {
+            playPromise
+                .then(() => {
+                    console.log('Warning sound played successfully');
+                })
+                .catch(error => {
+                    console.warn('Could not play warning sound:', error.message, error);
+                    // Fallback to visual notification
+                    showVisualNotification();
+                });
         }
+    } catch (error) {
+        console.warn('Error playing warning sound:', error.message, error);
+        // Fallback to visual notification
+        showVisualNotification();
+    }
+}
+
+// Visual notification fallback when audio fails
+function showVisualNotification() {
+    // Create a visual flash notification
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #ff6b47;
+        color: white;
+        padding: 15px 20px;
+        border-radius: 8px;
+        font-weight: bold;
+        z-index: 9999;
+        animation: pulseNotification 2s ease-in-out;
+        box-shadow: 0 4px 12px rgba(255, 107, 71, 0.4);
+    `;
+    notification.textContent = '⏰ ¡Advertencia de tiempo!';
+    
+    // Add CSS animation if not already added
+    if (!document.getElementById('notificationStyles')) {
+        const style = document.createElement('style');
+        style.id = 'notificationStyles';
+        style.textContent = `
+            @keyframes pulseNotification {
+                0%, 100% { transform: scale(1); opacity: 1; }
+                50% { transform: scale(1.05); opacity: 0.9; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    document.body.appendChild(notification);
+    
+    // Remove notification after 3 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 3000);
+}
+
+// Debug function to check audio status
+function debugAudio() {
+    console.log('=== Audio Debug Info ===');
+    console.log('SOUND_URI available:', !!window.SOUND_URI);
+    console.log('SOUND_URI value:', window.SOUND_URI);
+    console.log('Audio element:', audio);
+    console.log('Audio source:', audio ? audio.src : 'N/A');
+    console.log('Audio ready state:', audio ? audio.readyState : 'N/A');
+    console.log('Audio network state:', audio ? audio.networkState : 'N/A');
+    console.log('Audio loaded:', audioLoaded);
+    console.log('Audio unlocked:', audioUnlocked);
+    console.log('Unlock attempts:', unlockAttempts);
+    console.log('Audio error:', audio ? audio.error : 'N/A');
+    
+    if (audio && audio.error) {
+        console.log('Audio error code:', audio.error.code);
+        console.log('Audio error message:', audio.error.message);
+    }
+    
+    console.log('========================');
+    
+    // Make function available globally for manual testing
+    if (typeof window !== 'undefined') {
+        window.debugAudio = debugAudio;
     }
 }
 
